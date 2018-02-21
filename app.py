@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import re
+from urllib.parse import urlparse
 
 from multiprocessing import Process, Array
 
@@ -8,7 +9,7 @@ from aiohttp import web, request as send_request
 
 
 HOST = 'localhost'
-PORT = 9999
+PORT = 9090
 
 PROXY_SERVER_HOST = 'serveo.net'
 
@@ -28,8 +29,8 @@ START_FORWARDING_TEXT_REGEX = re.compile(START_FORWARDING_TEXT_TEMPLATE)
 ALLOWED_REL_URLS = {}
 
 
-async def redirect_payment_url(request):
-    transition_url = request.match_info['transition_url']
+async def redirect(request):
+    transition_url = f'/{request.match_info["transition_url"]}'
 
     if transition_url not in ALLOWED_REL_URLS:
         return web.json_response({'code': 403})
@@ -43,12 +44,13 @@ async def redirect_payment_url(request):
             return web.json_response({'code': 200})
 
 
-async def get_host_for_payment(request):
-    url_to_allow = request.match_info['url_to_allow']
-    hostname_for_transition = request.match_info['hostname_for_transition']
-    protocol = request.match_info['protocol']
-
-    ALLOWED_REL_URLS[url_to_allow] = f'{protocol}://{hostname_for_transition}'
+async def proxify_link(request):
+    data = await request.json()
+    url = data.get('url')
+    if not url:
+        raise Exception('Not url in request.')
+    parsed = urlparse(url)
+    ALLOWED_REL_URLS[parsed.path] = f'{parsed.scheme}://{parsed.netloc}'
 
     proxy_link = request.app[PROXY_LINK_PARAM].value.decode('utf-8')
 
@@ -77,12 +79,9 @@ def run_app(proxy_link):
 
     app[PROXY_LINK_PARAM] = proxy_link
 
-    app.router.add_get(
-        r'/proxy_link/{protocol}/{hostname_for_transition}/{url_to_allow:.*}',
-        get_host_for_payment,
-    )
+    app.router.add_post('/proxify_link', proxify_link)
 
-    app.router.add_get(r'/{transition_url:.*}', redirect_payment_url)
+    app.router.add_get(r'/{transition_url:.*}', redirect)
 
     log.debug('Application configured.')
 
