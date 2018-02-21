@@ -12,7 +12,7 @@ import requests
 from urlparse import urlparse
 
 class RemoteUrlForwarder(object):
-    _url = get_config('reverse_forwarding_link')
+    _url = 'http://localhost:9090/proxify_link'  # url to reverse forwarding service
 
     def _post(self, url_to_forward):
         try:
