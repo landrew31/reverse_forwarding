@@ -82,6 +82,7 @@ def run_app(proxy_link):
     app.router.add_post('/proxify_link', proxify_link)
 
     app.router.add_get(r'/{transition_url:.*}', redirect)
+    app.router.add_post(r'/{transition_url:.*}', redirect)
 
     log.debug('Application configured.')
 
