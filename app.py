@@ -1,6 +1,11 @@
 import logging
+import logging.config
+
+import json
 import subprocess
 import re
+
+import yaml
 from urllib.parse import urlparse
 
 from multiprocessing import Process, Array
@@ -14,9 +19,9 @@ PORT = 9090
 PROXY_SERVER_HOST = 'serveo.net'
 
 
-log = logging.getLogger(__name__)
-log.addHandler(logging.StreamHandler())
-log.setLevel(logging.DEBUG)
+config = yaml.load(open('config.yml'))
+logging.config.dictConfig(config['logging'])
+log = logging.getLogger('app')
 
 SSH_COMMUNICATION_PIPE = 'ssh_communication_pipe'
 
@@ -35,13 +40,18 @@ async def redirect(request):
     if transition_url not in ALLOWED_REL_URLS:
         return web.json_response({'code': 403})
     else:
-        url_to_transit = f'{ALLOWED_REL_URLS[transition_url]}/{transition_url}'
+        url_to_transit = f'{ALLOWED_REL_URLS[transition_url]}{transition_url}'
+        log.info(f'Is going to redirect to {url_to_transit}')
         params = dict(request.query)
         data = dict(await request.post())
         async with send_request(request.method, url_to_transit, params=params, data=data) as resp:
             text = await resp.text()
             log.info(f'Got response: {text}')
-            return web.json_response({'code': 200})
+            try:
+                res = json.loads(text)
+                return web.json_response(res)
+            except Exception:
+                return web.Response(body=text, content_type='text/html')
 
 
 async def proxify_link(request):
@@ -50,7 +60,9 @@ async def proxify_link(request):
     if not url:
         raise Exception('Not url in request.')
     parsed = urlparse(url)
-    ALLOWED_REL_URLS[parsed.path] = f'{parsed.scheme}://{parsed.netloc}'
+    origin = f'{parsed.scheme}://{parsed.netloc}'
+    ALLOWED_REL_URLS[parsed.path] = origin
+    log.info(f'Allowed reverse forwarding for {origin}{parsed.path}')
 
     proxy_link = request.app[PROXY_LINK_PARAM].value.decode('utf-8')
 
