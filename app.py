@@ -1,3 +1,4 @@
+import argparse
 import logging
 import logging.config
 
@@ -106,10 +107,23 @@ def run_app(proxy_link):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='''
+        Accept requests from remote services
+        on your local machine during debugging
+    ''')
+    parser.add_argument('--url', metavar='URL', type=str,
+                        help='External URL, if already obtained',
+                        default=None, required=False)
+    args = parser.parse_args()
+
     proxy_link = Array('c', 50)
 
-    port_forwarding_proc = Process(target=run_port_forwarding, args=(proxy_link,))
-    port_forwarding_proc.start()
+    if args.url:
+        proxy_link.value = bytes(args.url, 'utf-8')
+    else:
+        port_forwarding_proc = Process(target=run_port_forwarding,
+                                       args=(proxy_link,))
+        port_forwarding_proc.start()
 
     app_proc = Process(target=run_app, args=(proxy_link,))
     app_proc.start()
