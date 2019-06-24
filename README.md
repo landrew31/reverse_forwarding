@@ -74,3 +74,17 @@ Run beeing in project path.
     >`pyenv local reverse_forwarding`
 - Run:
     >`python3 app.py`
+
+This will create ssh tunnel to your local machine from serveo.net service and
+use the obtained url to generate external urls.
+
+As an alternative, you can use any reverse proxy you want in combination with
+this utility. To do so first run the reverse proxy and obtain the external url.
+For example with ngrok reverse proxy you may use the following command:
+
+    >`ngrok http 9090  # or whatever else port you want`
+
+After that run reverse_forwarding app with obtained external url as commandline
+parameter:
+
+    >`python3 app.py --url http://external.url.example.com`
